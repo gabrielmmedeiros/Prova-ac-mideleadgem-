@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Métodos Numéricos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.1/math.min.js"></script>
+<style>
+  :root{
+    --bg:#1d0816;
+    --panel:#3a1631;
+    --panel-2:#260f20;
+    --edge:rgba(212,175,55,.40);     /* moldura dourada */
+    --grid:rgba(212,175,55,.05);
+    --grid-strong:rgba(212,175,55,.09);
+    --ink:#f6ead9;                   /* marfim */
+    --muted:#d8b487;                 /* dourado rosado (rótulos) */
+    --accent:#e8c24a;                /* dourado */
+    --accent-2:#ff9ec4;              /* rosa (detalhes) */
+    --ok:#8fd6b0;       /* convergência */
+    --danger:#f0a0b8;   /* alerta (rosé) */
+    --mono: ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans: ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --serif: "Georgia","Iowan Old Style","Palatino Linotype",Palatino,serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:#0b1233;
+    color:var(--ink);
+    font-family:var(--sans);
+    line-height:1.5;
+    min-height:100vh;
+    /* salão rosa & dourado: brilho rosé no topo, calor dourado embaixo */
+    background-image:
+      radial-gradient(ellipse 80% 55% at 50% -10%, rgba(255,158,196,.32), transparent 62%),
+      radial-gradient(ellipse 70% 45% at 50% 112%, rgba(232,194,74,.14), transparent 60%),
+      linear-gradient(180deg,#3a1230 0%, #2a0c22 45%, #1d0816 100%);
+    background-attachment:fixed;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:28px 20px 64px}
+
+  header{margin-bottom:22px}
+  .eyebrow{
+    font-family:var(--mono);font-size:11px;letter-spacing:.28em;
+    text-transform:uppercase;color:var(--muted);
+  }
+  h1{
+    font-size:clamp(26px,5vw,40px);margin:.1em 0 .15em;
+    font-weight:700;letter-spacing:-.02em;
+  }
+  h1 .bar{color:var(--accent)}
+  .sub{color:var(--muted);font-size:14px;max-width:60ch}
+
+  /* seletor de modo, estilo botão de instrumento */
+  .tabs{display:flex;gap:0;margin:24px 0 0;border:1px solid var(--edge);border-radius:10px;overflow:hidden;background:var(--panel-2)}
+  .tab{
+    flex:1;appearance:none;border:0;cursor:pointer;
+    background:transparent;color:var(--muted);
+    font-family:var(--mono);font-size:12.5px;letter-spacing:.05em;
+    padding:13px 8px;text-transform:uppercase;
+    border-right:1px solid var(--edge);transition:.15s;
+  }
+  .tab:last-child{border-right:0}
+  .tab[aria-selected="true"]{background:var(--accent);color:#1a1206;font-weight:600}
+  .tab:not([aria-selected="true"]):hover{color:var(--ink);background:rgba(232,194,74,.06)}
+  .tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+  .panel{display:none;margin-top:18px}
+  .panel.active{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  .card{
+    background:var(--panel);border:1px solid var(--edge);
+    border-radius:12px;padding:20px;
+  }
+  .card + .card{margin-top:16px}
+
+  .label{
+    display:block;font-family:var(--mono);font-size:11px;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+    margin:0 0 6px;
+  }
+  .row{display:flex;gap:14px;flex-wrap:wrap}
+  .row > div{flex:1;min-width:120px}
+  input[type=text],input[type=number],select{
+    width:100%;background:var(--panel-2);border:1px solid var(--edge);
+    color:var(--ink);font-family:var(--mono);font-size:14px;
+    padding:10px 12px;border-radius:8px;
+  }
+  select{cursor:pointer;appearance:none;-webkit-appearance:none;
+    background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+    background-position:calc(100% - 16px) 18px,calc(100% - 11px) 18px;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px;}
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+  .hint{font-size:12px;color:var(--muted);margin-top:8px}
+  .hint code{font-family:var(--mono);color:#a9c4dc;background:var(--panel-2);padding:1px 5px;border-radius:4px}
+
+  button.go{
+    margin-top:16px;appearance:none;border:0;cursor:pointer;
+    background:var(--accent);color:#1a1206;font-weight:700;
+    font-family:var(--sans);font-size:14px;
+    padding:11px 22px;border-radius:8px;letter-spacing:.01em;
+  }
+  button.go:hover{filter:brightness(1.07)}
+  button.go:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  button.ghost{
+    background:transparent;border:1px solid var(--edge);color:var(--ink);
+    margin-left:8px;font-weight:500;
+  }
+  button.ghost:hover{border-color:var(--accent)}
+
+  .out{margin-top:18px}
+  .msg{padding:11px 14px;border-radius:8px;font-size:13.5px;margin-bottom:14px;border:1px solid transparent}
+  .msg.ok{background:rgba(95,180,156,.1);border-color:rgba(95,180,156,.4);color:#9fe0cc}
+  .msg.warn{background:rgba(232,194,74,.1);border-color:rgba(232,194,74,.4);color:#f6c08a}
+  .msg.err{background:rgba(224,108,117,.1);border-color:rgba(224,108,117,.45);color:#f1a3a9}
+  .msg b{color:inherit}
+
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13px;margin-top:6px}
+  th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--edge);white-space:nowrap}
+  th{color:var(--muted);font-weight:500;font-size:11px;letter-spacing:.08em;text-transform:uppercase;text-align:right}
+  th:first-child,td:first-child{text-align:center}
+  tbody tr:hover{background:rgba(120,165,205,.05)}
+  tr.final td{color:var(--accent);font-weight:600;background:rgba(232,194,74,.07)}
+  .tablewrap{overflow-x:auto;border:1px solid var(--edge);border-radius:10px;margin-top:8px}
+
+  .result-strip{
+    display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+    background:var(--panel-2);border:1px solid var(--edge);border-radius:10px;
+    padding:14px 18px;margin-top:14px;
+  }
+  .step-block{
+    background:var(--panel-2);border:1px solid var(--edge);border-radius:10px;
+    padding:12px 14px;margin-top:12px;
+  }
+  .step-head{
+    display:flex;align-items:center;gap:10px;
+    font-family:var(--sans);font-size:13px;color:var(--ink);font-weight:600;margin-bottom:4px;
+  }
+  .step-num{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-width:22px;height:22px;padding:0 6px;border-radius:6px;
+    background:rgba(232,194,74,.15);border:1px solid rgba(232,194,74,.45);
+    color:var(--accent);font-size:12px;font-weight:700;
+  }
+  .step-ops{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .step-ops code{
+    font-family:var(--mono);font-size:12px;color:var(--muted);
+    background:var(--bg);border:1px solid var(--edge);border-radius:6px;padding:3px 8px;
+  }
+  .result-strip .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .result-strip .v{font-family:var(--mono);font-size:22px;color:var(--accent);font-weight:600}
+
+  canvas{display:block;width:100%;height:auto;background:var(--panel-2);border:1px solid var(--edge);border-radius:10px;margin-top:14px}
+
+  /* matriz */
+  .matrix-grid{display:inline-grid;gap:7px;margin-top:10px;align-items:center;max-width:100%;overflow-x:auto}
+  .matrix-grid input{width:64px;text-align:center;padding:8px 4px}
+  .matrix-grid .bsep{width:1px;height:34px;background:var(--accent);opacity:.5;justify-self:center}
+  .matrix-grid .colhead{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center}
+  .nrow{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+  .nrow > div{min-width:0}
+  .nrow .label{margin-bottom:6px}
+
+  footer{margin-top:40px;color:var(--muted);font-size:12px;font-family:var(--mono);letter-spacing:.04em}
+  @media (max-width:560px){.matrix-grid input{width:48px}}
+
+  /* ===== TEMA PRINCESA: rosa & dourado ===== */
+  .wrap{position:relative;z-index:1}
+  header{text-align:center}
+  .eyebrow{color:var(--muted)}
+  h1{font-family:var(--serif);font-weight:700}
+  h1 .bar{color:var(--accent);text-shadow:0 2px 12px rgba(232,194,74,.4)}
+  .sub{margin:8px auto 0}
+  /* brilhos animados */
+  .sparkles{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .sparkle{position:absolute;color:var(--accent);opacity:0;
+    animation:twinkle var(--dur,3.4s) ease-in-out var(--delay,0s) infinite}
+  .sparkle svg{display:block;width:100%;height:100%}
+  @keyframes twinkle{
+    0%,100%{opacity:0;transform:scale(.3) rotate(0deg)}
+    50%{opacity:.95;transform:scale(1) rotate(35deg)}
+  }
+  /* molduras douradas e brilho nos cards */
+  .card{box-shadow:inset 0 0 0 1px rgba(212,175,55,.10), 0 12px 34px rgba(0,0,0,.34);
+    background:linear-gradient(180deg,rgba(255,158,196,.06),transparent 40%),var(--panel)}
+  .tab[aria-selected="true"]{box-shadow:0 0 14px rgba(232,194,74,.35)}
+  /* o resultado vira uma placa emoldurada em dourado */
+  .result-strip{
+    border:1px solid rgba(212,175,55,.65);
+    background:radial-gradient(120% 160% at 50% -10%, rgba(255,158,196,.16), transparent 60%), var(--panel-2);
+    box-shadow:0 0 0 4px var(--bg), 0 0 0 5px rgba(212,175,55,.4), 0 10px 28px rgba(0,0,0,.4);
+    position:relative;margin-top:18px;justify-content:center;text-align:center;
+  }</style>
+</head>
+<body>
+<div class="sparkles" id="sparkles" aria-hidden="true"></div>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Cálculo Numérico · IBMEC</div>
+    <h1>Resolvedor de <span class="bar">métodos</span></h1>
+    <p class="sub">Três métodos clássicos em um instrumento só: raízes por Newton-Raphson e falsa posição, e sistemas lineares por eliminação de Gauss com pivoteamento parcial. Convenção de erro relativo aproximado εₐ em %, como no Chapra.</p>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true"  id="t-newton" onclick="showTab('newton')">Newton-Raphson</button>
+      <button class="tab" role="tab" aria-selected="false" id="t-gauss"  onclick="showTab('gauss')">Eliminação de Gauss</button>
+      <button class="tab" role="tab" aria-selected="false" id="t-false"  onclick="showTab('false')">Falsa Posição</button>
+    </div>
+  </header>
+
+  <!-- ===================== NEWTON-RAPHSON ===================== -->
+  <section class="panel active" id="p-newton" role="tabpanel">
+    <div class="card">
+      <div class="row">
+        <div style="flex:2">
+          <label class="label" for="nr-f">Função f(x)</label>
+          <input type="text" id="nr-f" value="x^3 - 2*x - 5">
+        </div>
+        <div>
+          <label class="label" for="nr-x0">Estimativa inicial x₀</label>
+          <input type="text" id="nr-x0" value="2">
+        </div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <div>
+          <label class="label" for="nr-es">Tolerância ε</label>
+          <input type="text" id="nr-es" value="0.001">
+        </div>
+        <div>
+          <label class="label" for="nr-max">Máx. de iterações</label>
+          <input type="number" id="nr-max" value="50" min="1">
+        </div>
+        <div>
+          <label class="label" for="nr-crit">Critério de parada</label>
+          <select id="nr-crit">
+            <option value="ea">Erro relativo εₐ &lt; ε (%)</option>
+            <option value="fx">Resíduo |f(x)| &lt; ε</option>
+            <option value="both">Ambos (εₐ e |f(x)|)</option>
+          </select>
+        </div>
+      </div>
+      <button class="go" onclick="runNewton()">Calcular raiz</button>
+      <button class="ghost" style="margin-top:16px" onclick="clearNewton()">Limpar</button>
+      <p class="hint">Sintaxe: <code>x^3 - 2*x - 5</code>, <code>cos(x) - x</code>, <code>exp(-x) - x</code>, <code>log(x)</code> (ln), <code>sqrt(x)</code>. A derivada f'(x) é obtida simbolicamente. Para o critério εₐ, ε é em %; para |f(x)|, ε é o resíduo absoluto.</p>
+    </div>
+    <div class="out" id="nr-out"></div>
+  </section>
+
+  <!-- ===================== ELIMINAÇÃO DE GAUSS ===================== -->
+  <section class="panel" id="p-gauss" role="tabpanel">
+    <div class="card">
+      <div class="nrow">
+        <div>
+          <label class="label" for="g-n">Ordem do sistema (n)</label>
+          <input type="number" id="g-n" value="3" min="2" max="12" style="width:90px" oninput="buildMatrix()">
+        </div>
+        <div style="align-self:center">
+          <button class="ghost" onclick="fillExample()">Exemplo</button>
+          <button class="ghost" onclick="clearMatrix()">Limpar</button>
+        </div>
+      </div>
+      <label class="label" style="margin-top:18px">Matriz aumentada [ A | b ]</label>
+      <div id="g-matrix" class="matrix-grid"></div>
+      <label style="display:flex;align-items:center;gap:9px;margin-top:16px;font-size:13px;color:var(--ink);cursor:pointer">
+        <input type="checkbox" id="g-pivot" checked style="width:auto;accent-color:var(--accent)">
+        Pivoteamento parcial (recomendado) — desmarque para Gauss simples, como no exemplo da aula
+      </label>
+      <label style="display:flex;align-items:center;gap:9px;margin-top:10px;font-size:13px;color:var(--ink);cursor:pointer">
+        <input type="checkbox" id="g-steps" style="width:auto;accent-color:var(--accent)">
+        Mostrar passo a passo — cada troca, cada coluna eliminada e os multiplicadores Lᵢ ← Lᵢ − mᵢₖ·Lₖ
+      </label>
+      <button class="go" onclick="runGauss()">Resolver sistema</button>
+      <p class="hint">Com pivoteamento: troca de linhas pelo maior pivô em módulo a cada coluna, depois substituição regressiva. Sem pivoteamento: usa o pivô na própria diagonal (didático, mas quebra se o pivô for ≈ 0).</p>
+    </div>
+    <div class="out" id="g-out"></div>
+  </section>
+
+  <!-- ===================== FALSA POSIÇÃO ===================== -->
+  <section class="panel" id="p-false" role="tabpanel">
+    <div class="card">
+      <div class="row">
+        <div style="flex:2">
+          <label class="label" for="fp-f">Função f(x)</label>
+          <input type="text" id="fp-f" value="x^3 - 2*x - 5">
+        </div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <div>
+          <label class="label" for="fp-xl">Limite inferior xₗ</label>
+          <input type="text" id="fp-xl" value="2">
+        </div>
+        <div>
+          <label class="label" for="fp-xu">Limite superior xᵤ</label>
+          <input type="text" id="fp-xu" value="3">
+        </div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <div>
+          <label class="label" for="fp-es">Tolerância ε</label>
+          <input type="text" id="fp-es" value="0.001">
+        </div>
+        <div>
+          <label class="label" for="fp-max">Máx. de iterações</label>
+          <input type="number" id="fp-max" value="50" min="1">
+        </div>
+        <div>
+          <label class="label" for="fp-crit">Critério de parada</label>
+          <select id="fp-crit">
+            <option value="ea">Erro relativo εₐ &lt; ε (%)</option>
+            <option value="fx">Resíduo |f(xᵣ)| &lt; ε</option>
+            <option value="amp">Amplitude (xᵤ−xₗ) &lt; ε</option>
+            <option value="both">Ambos (εₐ e |f(xᵣ)|)</option>
+          </select>
+        </div>
+      </div>
+      <label style="display:flex;align-items:center;gap:9px;margin-top:16px;font-size:13px;color:var(--ink);cursor:pointer">
+        <input type="checkbox" id="fp-illinois" style="width:auto;accent-color:var(--accent)">
+        Falsa posição modificada (Illinois) — corrige o extremo preso
+      </label>
+      <button class="go" onclick="runFalse()">Calcular raiz</button>
+      <button class="ghost" style="margin-top:16px" onclick="clearFalse()">Limpar</button>
+      <p class="hint">Exige troca de sinal no intervalo: f(xₗ)·f(xᵤ) &lt; 0. A raiz a cada passo vem da reta secante (difere da bisseção só nesse cálculo). Para εₐ, ε é em %; para |f(xᵣ)| e amplitude, ε é absoluto.</p>
+    </div>
+    <div class="out" id="fp-out"></div>
+  </section>
+
+  <footer>f(x) avaliada com math.js · derivada simbólica · εₐ = |(xₙₑw − xₒₗd)/xₙₑw|·100%</footer>
+</div>
+
+<script>
+/* ---------- util ---------- */
+function showTab(id){
+  ['newton','gauss','false'].forEach(t=>{
+    document.getElementById('p-'+t).classList.toggle('active', t===id);
+    document.getElementById('t-'+t).setAttribute('aria-selected', t===id);
+  });
+}
+function fmt(x,d=6){
+  if(!isFinite(x)) return String(x);
+  if(x!==0 && (Math.abs(x)<1e-4 || Math.abs(x)>=1e6)) return x.toExponential(d-2);
+  return Number(x.toFixed(d)).toString();
+}
+function msg(type,html){return `<div class="msg ${type}">${html}</div>`;}
+
+function compileF(expr){
+  // retorna {f, valid, err}
+  try{
+    const node = math.parse(expr);
+    const code = node.compile();
+    const f = x => {
+      const v = code.evaluate({x});
+      if(typeof v !== 'number') throw new Error('A função precisa devolver um número real.');
+      return v;
+    };
+    f(0); // teste leve (pode dar NaN, tudo bem)
+    return {f, node, valid:true};
+  }catch(e){
+    return {valid:false, err:e.message};
+  }
+}
+
+/* ---------- plot genérico ---------- */
+function plot(canvasId, f, xmin, xmax, root){
+  const cv = document.getElementById(canvasId);
+  const W=860, H=300, pad=34;
+  cv.width=W; cv.height=H;
+  const g = cv.getContext('2d');
+  g.clearRect(0,0,W,H);
+
+  // amostra
+  const N=400, xs=[], ys=[];
+  for(let i=0;i<=N;i++){
+    const x = xmin + (xmax-xmin)*i/N;
+    let y; try{ y=f(x);}catch(e){y=NaN;}
+    xs.push(x); ys.push(y);
+  }
+  const finite = ys.filter(v=>isFinite(v));
+  if(!finite.length) return;
+  let ymin=Math.min(...finite), ymax=Math.max(...finite);
+  if(ymin===ymax){ymin-=1;ymax+=1;}
+  const m=(ymax-ymin)*0.12; ymin-=m; ymax+=m;
+
+  const X = x => pad + (x-xmin)/(xmax-xmin)*(W-2*pad);
+  const Y = y => H-pad - (y-ymin)/(ymax-ymin)*(H-2*pad);
+
+  // grid
+  g.strokeStyle='rgba(120,165,205,.10)'; g.lineWidth=1;
+  for(let i=0;i<=8;i++){const x=pad+i*(W-2*pad)/8; g.beginPath();g.moveTo(x,pad);g.lineTo(x,H-pad);g.stroke();}
+  for(let i=0;i<=5;i++){const y=pad+i*(H-2*pad)/5; g.beginPath();g.moveTo(pad,y);g.lineTo(W-pad,y);g.stroke();}
+
+  // eixos (y=0 e x=0 se visíveis)
+  g.strokeStyle='rgba(127,150,171,.6)'; g.lineWidth=1.2;
+  if(ymin<0&&ymax>0){const y0=Y(0);g.beginPath();g.moveTo(pad,y0);g.lineTo(W-pad,y0);g.stroke();}
+  if(xmin<0&&xmax>0){const x0=X(0);g.beginPath();g.moveTo(x0,pad);g.lineTo(x0,H-pad);g.stroke();}
+
+  // curva
+  g.strokeStyle='#ff9ec4'; g.lineWidth=2; g.beginPath();
+  let started=false;
+  for(let i=0;i<=N;i++){
+    if(!isFinite(ys[i])){started=false;continue;}
+    const px=X(xs[i]), py=Y(ys[i]);
+    if(!started){g.moveTo(px,py);started=true;} else g.lineTo(px,py);
+  }
+  g.stroke();
+
+  // raiz
+  if(root!=null && isFinite(root) && root>=xmin && root<=xmax){
+    const rx=X(root), ry=Y(0);
+    g.strokeStyle='rgba(232,194,74,.7)';g.setLineDash([4,4]);g.lineWidth=1.2;
+    g.beginPath();g.moveTo(rx,pad);g.lineTo(rx,H-pad);g.stroke();g.setLineDash([]);
+    g.fillStyle='#e8c24a';g.beginPath();g.arc(rx,ry,5,0,7);g.fill();
+    g.fillStyle='#e8c24a';g.font='12px ui-monospace,monospace';
+    g.fillText('raiz ≈ '+fmt(root,5), Math.min(rx+8,W-110), pad+14);
+  }
+}
+
+/* ================= NEWTON-RAPHSON ================= */
+function runNewton(){
+  const out = document.getElementById('nr-out');
+  const expr = document.getElementById('nr-f').value.trim();
+  const es   = parseFloat(document.getElementById('nr-es').value);
+  const maxit= parseInt(document.getElementById('nr-max').value);
+  const crit = document.getElementById('nr-crit').value;
+  let x0;
+  try{ x0 = math.evaluate(document.getElementById('nr-x0').value); }catch(e){ x0=NaN; }
+
+  const c = compileF(expr);
+  if(!c.valid){ out.innerHTML = msg('err','Não consegui interpretar f(x): '+c.err); return; }
+  if(!isFinite(x0)){ out.innerHTML = msg('err','Estimativa inicial x₀ inválida.'); return; }
+  if(!(es>0)){ out.innerHTML = msg('err','A tolerância ε precisa ser um número &gt; 0.'); return; }
+  if(!(maxit>=1)){ out.innerHTML = msg('err','Número máximo de iterações inválido.'); return; }
+
+  // derivada simbólica
+  let fp;
+  try{
+    const d = math.derivative(c.node, 'x').compile();
+    fp = x => d.evaluate({x});
+  }catch(e){ out.innerHTML = msg('err','Não consegui derivar f(x) automaticamente: '+e.message); return; }
+
+  const f = c.f;
+  const EPS = 1e-12;            // limiar para f'(x) ≈ 0
+  const rows=[]; let xr=x0, ea=NaN, stop='', stoppedZeroDeriv=false, diverged=false, oscillated=false;
+  const hist=[x0];
+  let iter=0;
+
+  for(iter=1; iter<=maxit; iter++){
+    let fx, dfx;
+    try{ fx=f(xr); dfx=fp(xr); }
+    catch(e){ stop='Erro ao avaliar f(x) ou f\'(x) em x='+fmt(xr)+'.'; break; }
+
+    if(!isFinite(fx) || !isFinite(dfx)){ stop='f(x) ou f\'(x) não definida em x='+fmt(xr)+' (divisão por zero, log de negativo, etc.).'; break; }
+
+    // RECOMENDAÇÃO 4: alerta para f'(x) ≈ 0
+    if(Math.abs(dfx) < EPS){
+      stoppedZeroDeriv = true;
+      rows.push({i:iter, x:xr, fx:fx, dfx:dfx, ea:NaN});
+      break;
+    }
+
+    const xnew = xr - fx/dfx;
+
+    // divergência: estimativa explodindo
+    if(!isFinite(xnew) || Math.abs(xnew) > 1e12){
+      diverged = true;
+      rows.push({i:iter, x:xnew, fx:NaN, dfx:dfx, ea:NaN});
+      break;
+    }
+
+    ea = (xnew!==0) ? Math.abs((xnew-xr)/xnew)*100 : Math.abs(xnew-xr)*100;
+    rows.push({i:iter, x:xnew, fx:f(xnew), dfx:dfx, ea:ea});
+
+    // oscilação: xnew repete um valor já visitado antes do anterior (ciclo)
+    for(let h=0; h<hist.length-1; h++){
+      if(Math.abs(xnew - hist[h]) < 1e-9){ oscillated = true; break; }
+    }
+    hist.push(xnew);
+    xr = xnew;
+
+    if(oscillated) break;
+    // critério de parada (RECOMENDAÇÃO 3: sempre limitado por maxit)
+    const fxnew = Math.abs(f(xnew));
+    const okEa = ea < es;
+    const okFx = fxnew < es;
+    if((crit==='ea' && okEa) || (crit==='fx' && okFx) || (crit==='both' && okEa && okFx)){
+      stop='ok'; break;
+    }
+  }
+
+  // monta saída
+  let html='';
+  // RECOMENDAÇÃO 4
+  if(stoppedZeroDeriv){
+    html += msg('err','<b>Parada de segurança:</b> f\'(x) ≈ 0 em x = '+fmt(xr)+'. O método de Newton-Raphson divide por f\'(x), então a iteração não pode continuar a partir daqui. Tente outra estimativa inicial x₀.');
+  } else if(diverged){
+    html += msg('err','<b>O método está divergindo.</b> As estimativas cresceram sem limite a partir de x₀ = '+fmt(x0)+'. Newton-Raphson não converge com essa estimativa — escolha um x₀ mais perto de onde o gráfico cruza o eixo x.');
+  } else if(oscillated){
+    html += msg('err','<b>Oscilação detectada (ciclo).</b> As estimativas começaram a se repetir sem se aproximar da raiz — o método entrou em um ciclo. Troque a estimativa inicial x₀.');
+  } else if(stop && stop!=='ok'){
+    html += msg('err','<b>Interrompido:</b> '+stop);
+  } else if(stop!=='ok'){
+    // RECOMENDAÇÃO 3
+    html += msg('warn','<b>Limite de iterações atingido</b> ('+maxit+') sem alcançar a tolerância ε = '+es+'. A última estimativa pode não ter convergido.');
+  }
+
+  const last = rows.length ? rows[rows.length-1] : null;
+  const root = last ? last.x : x0;
+  const okRoot = last && !diverged && !oscillated && !stoppedZeroDeriv;
+
+  if(stop==='ok'){
+    const critTxt = crit==='ea' ? 'εₐ = '+fmt(last.ea,4)+'% &lt; ε'
+                  : crit==='fx' ? '|f(xᵣ)| = '+fmt(Math.abs(f(root)),4)+' &lt; ε'
+                  : 'εₐ e |f(xᵣ)| &lt; ε';
+    html += msg('ok','<b>Convergiu</b> em '+rows.length+' iteração(ões) ('+critTxt+').');
+  }
+  // RECOMENDAÇÃO 2: substitui a raiz final em f(x) para verificar
+  if(okRoot){
+    let froot=NaN; try{ froot=f(root);}catch(e){}
+    const near = Math.abs(froot) < 1e-6;
+    html += msg(near?'ok':'warn',
+      '<b>Verificação f(raiz):</b> f('+fmt(root,6)+') = '+fmt(froot,4)+'. '
+      + (near
+          ? 'Próximo de zero — a raiz é confiável.'
+          : 'Não está próximo de zero. Pode ser convergência lenta/oscilante ou raiz ainda distante; revise x₀.'));
+    html += `<div class="result-strip"><span class="k">Raiz aproximada</span><span class="v">${fmt(root,7)}</span></div>`;
+  }
+
+  // tabela
+  if(rows.length){
+    let t = '<div class="tablewrap"><table><thead><tr><th>i</th><th>xᵢ</th><th>f(xᵢ)</th><th>f\'(xᵢ)</th><th>εₐ (%)</th></tr></thead><tbody>';
+    rows.forEach((r,k)=>{
+      const fin = (k===rows.length-1 && stop==='ok');
+      t += `<tr class="${fin?'final':''}"><td>${r.i}</td><td>${fmt(r.x)}</td><td>${fmt(r.fx)}</td><td>${fmt(r.dfx)}</td><td>${isNaN(r.ea)?'—':fmt(r.ea,4)}</td></tr>`;
+    });
+    t += '</tbody></table></div>';
+    html += t;
+  }
+
+  // RECOMENDAÇÃO 1: gráfico
+  html += '<canvas id="nr-canvas"></canvas>';
+  out.innerHTML = html;
+
+  // janela do gráfico: centrada na raiz se houve convergência; senão em x₀
+  const center = okRoot ? root : x0;
+  const span = okRoot ? Math.max(2, Math.abs(root-x0)*2.5 || 2) : 4;
+  plot('nr-canvas', f, center-span, center+span, okRoot ? root : null);
+}
+
+/* ================= ELIMINAÇÃO DE GAUSS ================= */
+function buildMatrix(keep){
+  const n = Math.max(2, Math.min(12, parseInt(document.getElementById('g-n').value)||3));
+  const grid = document.getElementById('g-matrix');
+  const old = keep ? readMatrixRaw() : null;
+  grid.style.gridTemplateColumns = `repeat(${n}, auto) 14px auto`;
+  let html='';
+  // cabeçalho
+  for(let j=0;j<n;j++) html += `<div class="colhead">a·x${j+1}</div>`;
+  html += `<div></div><div class="colhead">b</div>`;
+  // linhas
+  for(let i=0;i<n;i++){
+    for(let j=0;j<n;j++){
+      const v = (old && old.A[i] && old.A[i][j]!=null) ? old.A[i][j] : '';
+      html += `<input type="text" id="a_${i}_${j}" value="${v}">`;
+    }
+    html += `<div class="bsep"></div>`;
+    const bv = (old && old.b[i]!=null) ? old.b[i] : '';
+    html += `<input type="text" id="b_${i}" value="${bv}">`;
+  }
+  grid.innerHTML = html;
+}
+function readMatrixRaw(){
+  const n = parseInt(document.getElementById('g-n').value)||3;
+  const A=[], b=[];
+  for(let i=0;i<n;i++){
+    A[i]=[];
+    for(let j=0;j<n;j++){
+      const el=document.getElementById(`a_${i}_${j}`);
+      A[i][j]= el ? el.value : '';
+    }
+    const be=document.getElementById(`b_${i}`);
+    b[i]= be ? be.value : '';
+  }
+  return {A,b,n};
+}
+function clearMatrix(){
+  const {n}=readMatrixRaw();
+  for(let i=0;i<n;i++){
+    for(let j=0;j<n;j++) document.getElementById(`a_${i}_${j}`).value='';
+    document.getElementById(`b_${i}`).value='';
+  }
+  document.getElementById('g-out').innerHTML='';   // apaga o resultado anterior
+  const first=document.getElementById('a_0_0'); if(first) first.focus();
+}
+function clearNewton(){
+  document.getElementById('nr-f').value='';
+  document.getElementById('nr-x0').value='';
+  document.getElementById('nr-out').innerHTML='';  // apaga o resultado anterior
+  document.getElementById('nr-f').focus();
+}
+function clearFalse(){
+  document.getElementById('fp-f').value='';
+  document.getElementById('fp-xl').value='';
+  document.getElementById('fp-xu').value='';
+  document.getElementById('fp-out').innerHTML='';  // apaga o resultado anterior
+  document.getElementById('fp-f').focus();
+}
+function setMatrix(A,b,n){
+  document.getElementById('g-n').value=n;
+  buildMatrix();
+  for(let i=0;i<n;i++){
+    for(let j=0;j<n;j++) document.getElementById(`a_${i}_${j}`).value=A[i][j];
+    document.getElementById(`b_${i}`).value=b[i];
+  }
+  document.getElementById('g-out').innerHTML='';   // limpa resultado anterior
+}
+function fillExample(){
+  const n = Math.max(2, Math.min(12, parseInt(document.getElementById('g-n').value)||3));
+  // n = 3: exemplo do Chapra (casa com o slide do Exercício 1) — solução [3, -2.5, 7]
+  if(n===3){
+    setMatrix([[3,-0.1,-0.2],[0.1,7,-0.3],[0.3,-0.2,10]],[7.85,-19.3,71.4],3);
+    return;
+  }
+  // Demais ordens: sistema gerado de forma determinística, não-singular e com
+  // solução exata conhecida xsol = [1, -2, 3, -4, ...] (alternando sinal).
+  // Base estritamente diagonal dominante (garante não-singular); depois trocamos
+  // a 1ª e a última linha de propósito, para o pivoteamento parcial ter o que fazer.
+  const xsol=[]; for(let i=0;i<n;i++) xsol[i] = (i%2 ? -(i+1) : (i+1));
+  const A=[];
+  for(let i=0;i<n;i++){
+    A[i]=[]; let off=0;
+    for(let j=0;j<n;j++){
+      if(i!==j){ const v=((i*7+j*3)%7)-3; A[i][j]=v; off+=Math.abs(v); } // -3..3
+    }
+    A[i][i]=off+2+(i%3);   // diagonal domina a soma das demais → não-singular
+  }
+  [A[0],A[n-1]]=[A[n-1],A[0]];   // troca didática: força uma troca de pivô na coluna 1
+  const b=[]; for(let i=0;i<n;i++){ let s=0; for(let j=0;j<n;j++) s+=A[i][j]*xsol[j]; b[i]=s; }
+  setMatrix(A,b,n);
+}
+function evalCell(s){
+  try{ const v=math.evaluate(String(s)); return (typeof v==='number'&&isFinite(v))?v:NaN; }
+  catch(e){ return NaN; }
+}
+function triangularTable(A,b,n){
+  let t='<label class="label" style="margin-top:18px">Triangular [ U | b\' ] após eliminação</label><div class="tablewrap"><table><tbody>';
+  for(let i=0;i<n;i++){
+    t+='<tr>';
+    for(let j=0;j<n;j++) t+=`<td>${fmt(A[i][j],4)}</td>`;
+    t+=`<td style="border-left:1px solid var(--accent);color:var(--accent)">${fmt(b[i],4)}</td></tr>`;
+  }
+  t+='</tbody></table></div>';
+  return t;
+}
+function matSnapshot(A,b,n){
+  let t='<div class="tablewrap"><table><tbody>';
+  for(let i=0;i<n;i++){
+    t+='<tr>';
+    for(let j=0;j<n;j++) t+=`<td>${fmt(A[i][j],4)}</td>`;
+    t+=`<td style="border-left:1px solid var(--accent);color:var(--accent)">${fmt(b[i],4)}</td></tr>`;
+  }
+  t+='</tbody></table></div>';
+  return t;
+}
+function renderSteps(steps){
+  if(!steps.length) return '';
+  let h='<label class="label" style="margin-top:18px">Passo a passo da eliminação</label>';
+  steps.forEach((s,idx)=>{
+    h+='<div class="step-block">';
+    h+=`<div class="step-head"><span class="step-num">${idx+1}</span>${s.title}</div>`;
+    h+=matSnapshot(s.A,s.b,s.n);
+    if(s.ops&&s.ops.length) h+='<div class="step-ops">'+s.ops.map(o=>`<code>${o}</code>`).join('')+'</div>';
+    h+='</div>';
+  });
+  return h;
+}
+function runGauss(){
+  const out=document.getElementById('g-out');
+  const raw=readMatrixRaw(), n=raw.n;
+  const A=[], b=[];
+  for(let i=0;i<n;i++){
+    A[i]=[];
+    for(let j=0;j<n;j++){
+      const v=evalCell(raw.A[i][j]);
+      if(isNaN(v)){ out.innerHTML=msg('err',`O coeficiente da linha ${i+1}, coluna ${j+1} está vazio ou inválido. Aceito números e expressões como 1/3, 2/7 ou sqrt(2).`); return; }
+      A[i][j]=v;
+    }
+    const v=evalCell(raw.b[i]);
+    if(isNaN(v)){ out.innerHTML=msg('err',`O termo independente b da linha ${i+1} está vazio ou inválido.`); return; }
+    b[i]=v;
+  }
+
+  const EPS=1e-12;
+  const log=[];
+  let singular=false;
+  const pivotOn=document.getElementById('g-pivot').checked;
+  const showSteps=document.getElementById('g-steps').checked;
+  let swaps=0;            // nº de trocas de linha (para o sinal do det)
+  let breakdown=-1;       // linha onde o Gauss simples encontrou pivô ≈ 0
+  const steps=[];         // captura do passo a passo (só usado se showSteps)
+  const snap=()=>({A:A.map(r=>r.slice()), b:b.slice(), n});
+  if(showSteps) steps.push(Object.assign({title:'Matriz aumentada inicial'}, snap()));
+
+  // eliminação para frente (com ou sem pivoteamento parcial)
+  for(let k=0;k<n-1;k++){
+    if(pivotOn){
+      // pivoteamento parcial: maior |a[i][k]| nas linhas k..n-1
+      let p=k, big=Math.abs(A[k][k]);
+      for(let ii=k+1;ii<n;ii++){
+        const d=Math.abs(A[ii][k]);
+        if(d>big){big=d;p=ii;}
+      }
+      if(big<EPS){ singular=true; continue; } // coluna sem pivô utilizável
+      if(p!==k){
+        [A[p],A[k]]=[A[k],A[p]];
+        [b[p],b[k]]=[b[k],b[p]];
+        swaps++;
+        log.push(`Troca de linhas L${k+1} ↔ L${p+1} (pivô = ${fmt(A[k][k])}).`);
+        if(showSteps) steps.push(Object.assign({title:`Pivoteamento parcial: troca L${k+1} ↔ L${p+1} (maior pivô)`}, snap()));
+      }
+    } else {
+      // Gauss simples: usa o pivô na própria diagonal, sem trocar linhas
+      if(Math.abs(A[k][k])<EPS){
+        if(breakdown<0) breakdown=k; // pivô ≈ 0: o método quebra sem pivoteamento
+        singular=true; continue;
+      }
+    }
+    const colOps=[];
+    for(let i=k+1;i<n;i++){
+      const fator=A[i][k]/A[k][k];
+      if(showSteps) colOps.push(`L${i+1} ← L${i+1} − (${fmt(fator,6)})·L${k+1}`);
+      for(let j=k;j<n;j++) A[i][j]-=fator*A[k][j];
+      b[i]-=fator*b[k];
+    }
+    if(showSteps) steps.push(Object.assign({title:`Eliminação na coluna ${k+1} (zerar abaixo do pivô)`, ops:colOps}, snap()));
+  }
+  if(Math.abs(A[n-1][n-1])<EPS) singular=true;
+  if(showSteps && breakdown<0 && !singular) steps.push(Object.assign({title:'Forma triangular superior (pronta para retro-substituição)'}, snap()));
+
+  // Gauss simples travou num pivô nulo que o pivoteamento resolveria
+  if(breakdown>=0){
+    let html=msg('err','<b>Pivô nulo sem pivoteamento.</b> Na coluna '+(breakdown+1)+' o elemento da diagonal ficou ≈ 0, então o Gauss simples não consegue prosseguir (divisão por zero). Isso não significa, por si só, que o sistema seja singular — ative o <b>pivoteamento parcial</b> para tratar este caso, exatamente como o slide recomenda na seção de estratégia de pivoteamento.');
+    html += showSteps ? renderSteps(steps) : triangularTable(A,b,n);
+    out.innerHTML = html;
+    return;
+  }
+
+  // classificação: única / impossível (SI) / infinitas (SPI)
+  if(singular){
+    let impLinha=-1, redundantes=0;
+    for(let i=0;i<n;i++){
+      let allZero=true;
+      for(let j=0;j<n;j++) if(Math.abs(A[i][j])>1e-9){allZero=false;break;}
+      if(allZero){
+        if(Math.abs(b[i])>1e-9){ if(impLinha<0) impLinha=i; }
+        else redundantes++;
+      }
+    }
+    let html;
+    if(impLinha>=0){
+      html = msg('err','<b>Sistema impossível (SI).</b> A eliminação gerou a linha '+(impLinha+1)+' na forma 0 = '+fmt(b[impLinha],4)+' (≠ 0). Não existe solução.');
+    } else {
+      html = msg('warn','<b>Sistema possível indeterminado (SPI).</b> A matriz é singular (det = 0) com '+redundantes+' linha(s) nula(s) compatível(eis): existem infinitas soluções, não uma única. A eliminação de Gauss simples não isola um valor para cada incógnita nesse caso.');
+    }
+    html += showSteps ? renderSteps(steps) : triangularTable(A,b,n);
+    out.innerHTML = html;
+    return;
+  }
+
+  // substituição regressiva
+  const x=new Array(n);
+  x[n-1]=b[n-1]/A[n-1][n-1];
+  for(let i=n-2;i>=0;i--){
+    let soma=b[i];
+    for(let j=i+1;j<n;j++) soma-=A[i][j]*x[j];
+    x[i]=soma/A[i][i];
+  }
+  // det = (produto dos pivôs) × (-1)^(nº de trocas de linha)
+  // cada troca de linha inverte o sinal do determinante; assim recuperamos o det de A
+  let det=1; for(let i=0;i<n;i++) det*=A[i][i];
+  if(swaps%2!==0) det=-det;
+
+  let html='';
+  html += msg('ok','<b>Sistema possível e determinado.</b> Solução única (det ≈ '+fmt(det,4)+').');
+  if(pivotOn){
+    if(log.length) html += msg('warn','<b>Pivoteamento parcial:</b><br>'+log.join('<br>'));
+    else html += msg('warn','<b>Pivoteamento parcial ativo:</b> nenhuma troca de linha foi necessária (a diagonal já tinha o maior pivô em cada coluna).');
+  } else {
+    html += msg('warn','<b>Gauss simples (sem pivoteamento).</b> Usando o pivô da diagonal, sem trocar linhas — reproduz o passo a passo da aula.');
+  }
+
+  let strip='<div class="result-strip">';
+  for(let i=0;i<n;i++) strip += `<span class="k">x${i+1}</span><span class="v">${fmt(x[i],6)}</span>`;
+  strip += '</div>';
+  html += strip + (showSteps ? renderSteps(steps) : triangularTable(A,b,n));
+  out.innerHTML = html;
+}
+
+/* ================= FALSA POSIÇÃO ================= */
+function runFalse(){
+  const out=document.getElementById('fp-out');
+  const expr=document.getElementById('fp-f').value.trim();
+  const es=parseFloat(document.getElementById('fp-es').value);
+  const maxit=parseInt(document.getElementById('fp-max').value);
+  let xl,xu;
+  try{ xl=math.evaluate(document.getElementById('fp-xl').value);}catch(e){xl=NaN;}
+  try{ xu=math.evaluate(document.getElementById('fp-xu').value);}catch(e){xu=NaN;}
+
+  const c=compileF(expr);
+  if(!c.valid){ out.innerHTML=msg('err','Não consegui interpretar f(x): '+c.err); return; }
+  if(!isFinite(xl)||!isFinite(xu)){ out.innerHTML=msg('err','Limites xₗ e/ou xᵤ inválidos.'); return; }
+  if(xl>=xu){ out.innerHTML=msg('err','Use xₗ &lt; xᵤ.'); return; }
+  if(!(es>0)){ out.innerHTML=msg('err','A tolerância ε precisa ser &gt; 0.'); return; }
+  if(!(maxit>=1)){ out.innerHTML=msg('err','Número máximo de iterações inválido.'); return; }
+
+  const f=c.f;
+  let fl,fu;
+  try{ fl=f(xl); fu=f(xu);}catch(e){ out.innerHTML=msg('err','Erro ao avaliar f nos extremos.'); return; }
+  if(!isFinite(fl)||!isFinite(fu)){ out.innerHTML=msg('err','f(xₗ) ou f(xᵤ) não está definida.'); return; }
+
+  // restrição do método: precisa trocar de sinal
+  if(fl*fu>0){
+    out.innerHTML=msg('err','<b>Sem garantia de raiz no intervalo.</b> f(xₗ)='+fmt(fl,4)+' e f(xᵤ)='+fmt(fu,4)+' têm o mesmo sinal. Escolha xₗ e xᵤ tais que f(xₗ)·f(xᵤ) &lt; 0.');
+    return;
+  }
+
+  const illinois = document.getElementById('fp-illinois').checked;
+  const crit = document.getElementById('fp-crit').value;
+  const rows=[]; let xrOld=null, xr, ea=NaN, stop='';
+  let sideL=0, sideU=0, maxStuck=0; // retenções consecutivas de cada extremo
+  let iter=0;
+  for(iter=1; iter<=maxit; iter++){
+    // 2º passo: raiz pela secante (única diferença para a bisseção)
+    xr = xu - fu*(xl-xu)/(fl-fu);
+    const fr=f(xr);
+    if(xrOld!==null) ea = (xr!==0)?Math.abs((xr-xrOld)/xr)*100:Math.abs(xr-xrOld)*100;
+    const amp = xu-xl;
+    rows.push({i:iter, xl, xu, xr, fr, ea, amp});
+
+    if(fl*fr<0){            // raiz em [xl, xr]: xl retido, xu desce
+      xu=xr; fu=fr;
+      sideU=0; sideL++;
+      if(illinois && sideL>=2) fl*=0.5;   // alivia o extremo preso (xl)
+    } else if(fl*fr>0){     // raiz em [xr, xu]: xu retido, xl sobe
+      xl=xr; fl=fr;
+      sideL=0; sideU++;
+      if(illinois && sideU>=2) fu*=0.5;   // alivia o extremo preso (xu)
+    } else { ea=0; xrOld=xr; stop='exact'; break; } // fr exatamente 0 → raiz exata
+    maxStuck=Math.max(maxStuck, sideL, sideU);
+
+    // critério de parada selecionado
+    const okEa = (xrOld!==null) && ea<es;
+    const okFx = Math.abs(fr)<es;
+    const okAmp = (xu-xl)<es;
+    if((crit==='ea' && okEa) || (crit==='fx' && okFx) || (crit==='amp' && okAmp) || (crit==='both' && okEa && okFx)){
+      stop='ok'; break;
+    }
+    xrOld=xr;
+  }
+
+  let html='';
+  if(illinois){
+    html += msg('ok','Variante <b>Illinois</b> ativa: o valor de f no extremo retido é reduzido pela metade após 2 retenções seguidas, evitando a estagnação de um lado.');
+  }
+  if(stop==='exact'){
+    html += msg('ok','<b>Raiz exata encontrada.</b> f(xᵣ) = 0 em xᵣ = '+fmt(rows[rows.length-1].xr,7)+', então o método parou aqui.');
+  } else if(stop==='ok'){
+    const lastRow = rows[rows.length-1];
+    const critTxt = crit==='ea' ? 'εₐ = '+(isNaN(lastRow.ea)?'0':fmt(lastRow.ea,4))+'% &lt; ε'
+                  : crit==='fx' ? '|f(xᵣ)| = '+fmt(Math.abs(lastRow.fr),4)+' &lt; ε'
+                  : crit==='amp'? '(xᵤ−xₗ) = '+fmt(lastRow.amp,4)+' &lt; ε'
+                  : 'εₐ e |f(xᵣ)| &lt; ε';
+    html += msg('ok','<b>Convergiu</b> em '+rows.length+' iteração(ões) ('+critTxt+').');
+  } else {
+    html += msg('warn','<b>Limite de iterações atingido</b> ('+maxit+') sem alcançar a tolerância ε = '+es+'.'
+      + (crit==='amp' ? ' Atenção: na falsa posição um extremo costuma ficar fixo, então a amplitude (xᵤ−xₗ) pode nunca diminuir o bastante — por isso o erro relativo εₐ é o critério usual aqui.' : ''));
+  }
+  if(!illinois && maxStuck>=4){
+    html += msg('warn','<b>Extremo preso.</b> Um dos limites ficou parado por '+maxStuck+' iterações seguidas — é a limitação clássica da falsa posição (a curva mantém o mesmo sinal de um lado, então a convergência fica lenta). Marque a opção <b>Illinois</b> para acelerar.');
+  }
+  const last=rows[rows.length-1];
+  const froot=f(last.xr);
+  html += msg(Math.abs(froot)<1e-6?'ok':'warn','<b>Verificação f(raiz):</b> f('+fmt(last.xr,6)+') = '+fmt(froot,4)+'.');
+  html += `<div class="result-strip"><span class="k">Raiz aproximada</span><span class="v">${fmt(last.xr,7)}</span></div>`;
+
+  let t='<div class="tablewrap"><table><thead><tr><th>i</th><th>xₗ</th><th>xᵤ</th><th>xᵣ</th><th>f(xᵣ)</th><th>εₐ (%)</th><th>xᵤ−xₗ</th></tr></thead><tbody>';
+  rows.forEach((r,k)=>{
+    const fin=(k===rows.length-1 && (stop==='ok'||stop==='exact'));
+    t+=`<tr class="${fin?'final':''}"><td>${r.i}</td><td>${fmt(r.xl)}</td><td>${fmt(r.xu)}</td><td>${fmt(r.xr)}</td><td>${fmt(r.fr)}</td><td>${isNaN(r.ea)?'—':fmt(r.ea,4)}</td><td>${fmt(r.amp,4)}</td></tr>`;
+  });
+  t+='</tbody></table></div>';
+  html += t;
+
+  html += '<canvas id="fp-canvas"></canvas>';
+  out.innerHTML=html;
+
+  const a=parseFloat(document.getElementById('fp-xl').value)||(last.xr-2);
+  const b=parseFloat(document.getElementById('fp-xu').value)||(last.xr+2);
+  const pad=(b-a)*0.25||1;
+  plot('fp-canvas', f, a-pad, b+pad, last.xr);
+}
+
+function makeSparkles(){
+  const host=document.getElementById('sparkles'); if(!host) return;
+  const star="<svg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path d='M12 0 L14 10 L24 12 L14 14 L12 24 L10 14 L0 12 L10 10 Z' fill='currentColor'/></svg>";
+  let h='';
+  for(let i=0;i<26;i++){
+    const x=(Math.random()*100).toFixed(2), y=(Math.random()*100).toFixed(2);
+    const s=(6+Math.random()*12).toFixed(1);
+    const dur=(2.6+Math.random()*2.8).toFixed(2), del=(Math.random()*4).toFixed(2);
+    h+=`<span class="sparkle" style="left:${x}%;top:${y}%;width:${s}px;height:${s}px;--dur:${dur}s;--delay:${del}s">${star}</span>`;
+  }
+  host.innerHTML=h;
+}
+
+/* init */
+buildMatrix();
+fillExample();
+makeSparkles();
+</script>
+</body>
+</html>
